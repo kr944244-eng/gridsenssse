@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+{% include "_head.html" %}
+<title>{{ code }} · {{ P.app_name }}</title>
+</head>
+<body>
+<div class="errpage">
+  <div class="card errcard">
+    <a class="logo" href="/"><div class="bolt">⚡</div><span>Grid<b>Sense</b></span></a>
+    <div class="errcode mono">{{ code }}</div>
+    <h1>{{ title }}</h1>
+    <p class="muted">{{ msg }}</p>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px">
+      <a class="btn primary" href="/">🏠 Go to dashboard</a>
+      <a class="btn" href="javascript:history.back()">← Go back</a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

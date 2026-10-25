@@ -1,0 +1,26 @@
+<svg viewBox="0 0 440 300" class="netsvg" aria-label="Live grid network illustration">
+        <defs>
+          <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#60a5fa" stop-opacity=".45"/><stop offset="1" stop-color="#60a5fa" stop-opacity="0"/></radialGradient>
+        </defs>
+        <circle cx="220" cy="150" r="120" fill="url(#glow)"/>
+        <circle cx="220" cy="150" r="96" class="orbit"/>
+        <circle cx="220" cy="150" r="132" class="orbit o2"/>
+        <!-- lines -->
+        <path id="l1" class="wire src" d="M64 70 Q140 80 220 150"/>
+        <path id="l2" class="wire src" d="M64 232 Q140 222 220 150"/>
+        <path id="l3" class="wire" d="M220 150 Q300 70 376 58"/>
+        <path id="l4" class="wire" d="M220 150 L388 150"/>
+        <path id="l5" class="wire" d="M220 150 Q300 230 376 242"/>
+        <!-- moving energy -->
+        {% for l, dur in [("l1","2.6s"),("l2","3s"),("l3","2.2s"),("l4","1.8s"),("l5","2.4s")] %}
+        <circle r="3.6" class="spark"><animateMotion dur="{{ dur }}" repeatCount="indefinite"><mpath href="#{{ l }}"/></animateMotion></circle>
+        <circle r="2.4" class="spark dim"><animateMotion dur="{{ dur }}" begin="-1s" repeatCount="indefinite"><mpath href="#{{ l }}"/></animateMotion></circle>
+        {% endfor %}
+        <!-- nodes -->
+        <g class="nd src"><circle cx="64" cy="70" r="22"/><text x="64" y="71">☀️</text><text class="nl" x="64" y="108">Solar</text></g>
+        <g class="nd src"><circle cx="64" cy="232" r="22"/><text x="64" y="233">🌬️</text><text class="nl" x="64" y="270">Wind</text></g>
+        <g class="nd hub"><circle cx="220" cy="150" r="40" class="ring"/><circle cx="220" cy="150" r="32"/><text x="220" y="148" font-size="22">🏭</text><text class="nl" x="220" y="204">Power Plant</text></g>
+        <g class="nd load"><circle cx="376" cy="58" r="24"/><text x="376" y="59">🏘️</text><text class="nl" x="376" y="98">Residential</text></g>
+        <g class="nd load"><circle cx="388" cy="150" r="24"/><text x="388" y="151">🏗️</text><text class="nl" x="388" y="190">Industrial</text></g>
+        <g class="nd load"><circle cx="376" cy="242" r="24"/><text x="376" y="243">🏬</text><text class="nl" x="376" y="282">Commercial</text></g>
+      </svg>

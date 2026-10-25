@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+gridsense.db
+batch_results/
+smart_grid_stability_augmented.csv
+.venv/
+venv/

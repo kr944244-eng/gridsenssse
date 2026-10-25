@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+{% set state = (d.latest.label if d.latest else "none") %}
+<!-- ============ HERO BANNER ============ -->
+<section class="hero2 state-{{ state }}">
+  <div class="hero2-top">
+    <div class="hero2-college">{% include "_emblem.html" %}
+      <div><b>{{ P.college }}</b><span>{{ P.department }}</span></div></div>
+    <div class="hero2-pills">
+      <span class="hpill"><i class="live"></i>Model online</span>
+      <span class="hpill mono" id="clock">--:--:--</span>
+    </div>
+  </div>
+  <div class="hero2-grid">
+    <div class="hero2-text">
+      <div class="eyebrow">Grid Operations Console</div>
+      <h1><span id="greet">Welcome</span>, {{ user_name }}</h1>
+      <p class="lead">{{ P.title }}</p>
+      <p class="sub">Predict feeder instability before it happens, see the risk to the people it supplies, and act on model-generated fixes.</p>
+      <div class="hero-actions">
+        <a class="btn light" href="{{ url_for('predict_page') }}">⚡ New stability check</a>
+        <a class="btn ghost" href="{{ url_for('batch_page') }}">📂 Upload CSV</a>
+        <button class="btn ghost" onclick="openChat()">💬 Ask the assistant</button>
+      </div>
+      <div class="hero2-stats">
+        <div><b class="mono" data-count="{{ d.best.accuracy*100 }}" data-dec="2" data-suffix="%">0</b><span>Model accuracy</span></div>
+        <div><b class="mono" data-count="{{ d.dataset.rows }}">0</b><span>Grid simulations</span></div>
+        <div><b class="mono" data-count="{{ d.best.roc_auc }}" data-dec="3">0</b><span>ROC-AUC</span></div>
+      </div>
+    </div>
+    <div class="hero2-art">
+      {% include "_network.html" %}
+      <div class="art-cap">
+        {% if d.latest %}Latest: <b>{{ d.latest.site }}</b> is <b class="st">{{ d.latest.label | upper }}</b> ({{ "%.1f"|format(d.latest.prob*100) }}%)
+        {% else %}Run a stability check to see your feeder status here{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ KPIs ============ -->
+<section class="kpis">
+  <div class="kpi"><div class="kpi-ic" style="--c:#3b82f6">⚡</div>
+    <div><small>Stability checks</small><b class="mono" data-count="{{ d.total }}">0</b>
+    <span class="muted">+ {{ d.batches.grids }} grids via batch upload</span></div></div>
+  <div class="kpi"><div class="kpi-ic" style="--c:#22c55e">🛡️</div>
+    <div><small>Grid health</small><b class="mono" {% if d.health is not none %}data-count="{{ d.health }}" data-suffix="%"{% endif %}>{{ "–" if d.health is none else 0 }}</b>
+    <span class="muted">{{ d.stable }} of {{ d.total }} checks stable</span>
+    {% if d.health is not none %}<div class="kpi-bar"><em style="width:{{ d.health }}%"></em></div>{% endif %}</div></div>
+  <div class="kpi"><div class="kpi-ic" style="--c:#ef4444">🚨</div>
+    <div><small>Active alerts</small><b class="mono {{ 'c-red' if d.critical }}" data-count="{{ d.critical }}">0</b>
+    <span class="muted">Critical + At Risk feeders</span></div></div>
+  <div class="kpi"><div class="kpi-ic" style="--c:#f59e0b">📈</div>
+    <div><small>Average stability</small><b class="mono" {% if d.avg is not none %}data-count="{{ d.avg }}" data-dec="1" data-suffix="%"{% endif %}>{{ "–" if d.avg is none else 0 }}</b>
+    <span class="muted">across all your checks</span><div class="spark-mini" id="kpiSpark"></div></div></div>
+</section>
+
+<!-- ============ TREND + QUICK CHECK ============ -->
+<section class="dash-grid g-2-1">
+  <div class="card">
+    <div class="card-head"><div><h3>Stability trend</h3><div class="cap">Chance of stability for your last {{ d.trend|length }} checks</div></div>
+      <a class="btn sm" href="{{ url_for('history_page') }}">View all →</a></div>
+    {% if d.trend %}<div class="chartbox" id="trendChart" style="height:290px"></div>
+    {% else %}<div class="empty"><div class="big">📉</div>No checks yet. <a href="{{ url_for('predict_page') }}">Run your first stability check</a> to see the trend.</div>{% endif %}
+  </div>
+  <div class="card quick">
+    <div class="card-head"><div><h3>⚡ Quick check</h3><div class="cap">Live prediction while you move the sliders (not saved)</div></div></div>
+    <div class="qgauge">
+      <svg viewBox="0 0 200 112" width="200" height="112">
+        <path d="M16 100 A84 84 0 0 1 184 100" class="qtrack"/>
+        <path d="M16 100 A84 84 0 0 1 184 100" class="qbar" id="qbar" pathLength="100" stroke-dasharray="100" stroke-dashoffset="100"/>
+      </svg>
+      <div class="qval"><b class="mono" id="qpct">–</b><span id="qrisk">–</span></div>
+    </div>
+    <div class="qsliders">
+      {% for i, lab in [(1,"🏭 Plant"),(2,"🏘️ Residential"),(3,"🏗️ Industrial"),(4,"🏬 Commercial")] %}
+      <label><span>{{ lab }} τ</span><input type="range" min="0.5" max="10" step="0.1" value="{{ [2.0,3.0,4.0,5.0][i-1] }}" id="q{{ i }}" oninput="quick()"><b class="mono" id="qv{{ i }}"></b></label>
+      {% endfor %}
+      <label><span>💲 Price sens. γ</span><input type="range" min="0.05" max="1" step="0.01" value="0.5" id="qg" oninput="quick()"><b class="mono" id="qvg"></b></label>
+    </div>
+    <a class="btn sm" href="{{ url_for('predict_page') }}" style="margin-top:10px">Full 5-step check →</a>
+  </div>
+</section>
+
+<!-- ============ RECENT + RISK ============ -->
+<section class="dash-grid g-2-1">
+  <div class="card">
+    <div class="card-head"><div><h3>Recent assessments</h3><div class="cap">Latest stability checks</div></div>
+      <a class="btn sm" href="{{ url_for('predict_page') }}">➕ New</a></div>
+    {% if recent %}
+    <div class="scroll"><table class="tbl">
+      <tr><th>Site</th><th>Time</th><th>Result</th><th>Stability</th><th>Risk</th><th></th></tr>
+      {% for p in recent %}
+      <tr>
+        <td><b>{{ p.site }}</b><div class="muted mono" style="font-size:11px">#{{ p.id }}</div></td>
+        <td class="mono muted" style="font-size:12px">{{ p.created_at }}</td>
+        <td><span class="pill {{ p.label }}">{{ p.label | upper }}</span></td>
+        <td><div class="pbar"><i><em class="{{ p.label }}" style="width:{{ [p.probability*100, 2]|max }}%"></em></i><span class="mono">{{ "%.1f"|format(p.probability*100) }}%</span></div></td>
+        <td class="risk-{{ p.risk.split(' ')[0] }}" style="font-weight:600">{{ p.risk }}</td>
+        <td><a class="btn sm" href="{{ url_for('report_pdf', pred_id=p.id) }}" title="Download PDF">📄</a></td>
+      </tr>
+      {% endfor %}
+    </table></div>
+    {% else %}<div class="empty"><div class="big">🗂️</div>Your assessments will be listed here.</div>{% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h3>Risk distribution</h3><div class="cap">All single checks</div></div></div>
+    {% if d.total %}<div class="donut-wrap"><div id="donut"></div><div class="legend col" id="donutLegend"></div></div>
+    {% else %}<div class="empty"><div class="big">🍩</div>Risk levels appear here after your first check.</div>{% endif %}
+  </div>
+</section>
+
+<!-- ============ ALERTS + MODEL + ACTIVITY ============ -->
+<section class="dash-grid g-3">
+  <div class="card">
+    <div class="card-head"><div><h3>🚨 Alerts</h3><div class="cap">Feeders that need action</div></div></div>
+    {% if d.alerts %}
+    <div class="alerts">
+      {% for a in d.alerts %}
+      <div class="alert {{ 'crit' if a.risk == 'Critical' else 'warn' }}">
+        <div class="alert-top"><b>{{ a.site }}</b><span class="risk-{{ a.risk.split(' ')[0] }}">{{ a.risk }} · {{ "%.1f"|format(a.prob*100) }}%</span></div>
+        {% if a.action %}<div class="alert-act">Next step: {{ a.action }}</div>{% endif %}
+        <div class="alert-foot"><span class="mono muted">{{ a.time }}</span><a href="{{ url_for('report_pdf', pred_id=a.id) }}">Report →</a></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<div class="empty"><div class="big">✅</div>No active alerts. All checked feeders are safe.</div>{% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h3>🧠 Model performance</h3><div class="cap">{{ d.best_model }} · {{ "{:,}".format(d.dataset.test_rows) }} unseen test grids</div></div></div>
+    <div class="ring-row">
+      <div class="ring" style="--v:{{ d.best.accuracy*100 }}"><span class="mono">{{ "%.1f"|format(d.best.accuracy*100) }}%</span><small>accuracy</small></div>
+      <div class="mini-bars" style="flex:1">
+        {% for k, lab in [("precision","Precision"),("recall","Recall"),("f1","F1 score"),("roc_auc","ROC-AUC")] %}
+        <div><span>{{ lab }}</span><i><em style="width:{{ d.best[k]*100 }}%"></em></i><b class="mono">{{ "%.3f"|format(d.best[k]) }}</b></div>
+        {% endfor %}
+      </div>
+    </div>
+    <a class="btn sm" href="{{ url_for('insights_page') }}" style="margin-top:14px">Compare all 4 models →</a>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h3>🕘 Activity</h3><div class="cap">What happened recently</div></div></div>
+    {% if d.activity %}
+    <ul class="timeline">
+      {% for a in d.activity %}
+      <li class="{{ a.label if a.kind == 'check' else 'batch' }}">
+        {% if a.kind == 'check' %}
+          <b>{{ a.site }}</b> checked: <span class="pill {{ a.label }}">{{ a.label | upper }}</span> {{ "%.1f"|format(a.prob*100) }}%
+        {% else %}
+          <b>{{ a.site }}</b> uploaded: {{ a.total }} grids, {{ a.unstable }} unstable
+        {% endif %}
+        <span class="mono muted when" title="{{ a.t }}">{{ a.ago }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<div class="empty"><div class="big">🕘</div>Your activity will appear here.</div>{% endif %}
+  </div>
+</section>
+
+<!-- ============ DRIVERS + HOW ============ -->
+<section class="dash-grid g-1-1">
+  <div class="card">
+    <div class="card-head"><div><h3>Top stability drivers</h3><div class="cap">Permutation importance of the deployed model</div></div></div>
+    <div class="chartbox" id="drivers" style="height:300px"></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h3>How GridSense works</h3><div class="cap">From readings to action plan</div></div></div>
+    <ol class="flow-steps">
+      <li><span>1</span><div><b>Enter readings</b>One set per location: plant, residential, industrial, commercial</div></li>
+      <li><span>2</span><div><b>Neural network predicts</b>Chance of stability in milliseconds ({{ "%.2f"|format(d.best.accuracy*100) }}% accurate)</div></li>
+      <li><span>3</span><div><b>Risk level</b>Safe · Watch · At Risk · Critical, plus the impact on people</div></li>
+      <li><span>4</span><div><b>Action plan + PDF</b>The model finds the smallest changes that prevent power cuts</div></li>
+    </ol>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const D = {{ d | tojson }};
+const RISK_C = {"Safe":"#22c55e","Watch":"#eab308","At Risk":"#f97316","Critical":"#ef4444"};
+const ORDER = ["Safe","Watch","At Risk","Critical"];
+
+/* greeting + live clock */
+const hr = new Date().getHours();
+document.getElementById("greet").textContent = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
+function tick(){
+  const n = new Date();
+  clock.textContent = n.toLocaleDateString(undefined, {weekday:"short", day:"2-digit", month:"short"}) + " · " +
+                      n.toLocaleTimeString(undefined, {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+}
+tick(); setInterval(tick, 1000);
+
+/* count-up numbers */
+document.querySelectorAll("[data-count]").forEach(el => {
+  const end = parseFloat(el.dataset.count), dec = +(el.dataset.dec || 0), suf = el.dataset.suffix || "";
+  const t0 = performance.now(), dur = 1100;
+  const step = now => {
+    const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3), v = end * e;
+    el.textContent = (dec ? v.toFixed(dec) : Math.round(v).toLocaleString()) + suf;
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+});
+
+/* quick check */
+let qTimer;
+function quick(){
+  [1,2,3,4].forEach(i => document.getElementById("qv"+i).textContent = (+document.getElementById("q"+i).value).toFixed(1) + " s");
+  qvg.textContent = (+qg.value).toFixed(2);
+  clearTimeout(qTimer);
+  qTimer = setTimeout(async () => {
+    const body = {g: +qg.value}; [1,2,3,4].forEach(i => body["tau"+i] = +document.getElementById("q"+i).value);
+    const r = await api("/api/quick", body);
+    const p = r.probability_stable;
+    qbar.style.strokeDashoffset = 100 - p*100; qbar.style.stroke = r.color;
+    qpct.textContent = (p > 0 && p < .001 ? "<0.1" : (p*100).toFixed(1)) + "%"; qpct.style.color = r.color;
+    qrisk.textContent = (r.label === "stable" ? "Stable" : "Unstable") + " · " + r.risk;
+  }, 120);
+}
+quick();
+
+function drawTrend(){
+  const el = document.getElementById("trendChart"); if (!el) return;
+  const pts = D.trend, {w} = frame(el, 290), H = 290, m = {l:44, r:14, t:14, b:34};
+  const X = i => m.l + (pts.length === 1 ? (w-m.l-m.r)/2 : i * (w-m.l-m.r)/(pts.length-1));
+  const Y = v => m.t + (1 - v/100) * (H - m.t - m.b);
+  const C = css("--blue");
+  let g = `<defs><linearGradient id="tg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${C}" stop-opacity=".28"/><stop offset="1" stop-color="${C}" stop-opacity="0"/></linearGradient></defs>`;
+  [0,25,50,75,100].forEach(t => g += `<line class="ax" x1="${m.l}" x2="${w-m.r}" y1="${Y(t)}" y2="${Y(t)}"/><text class="axt" x="${m.l-8}" y="${Y(t)+4}" text-anchor="end">${t}%</text>`);
+  g += `<rect x="${m.l}" y="${Y(100)}" width="${w-m.l-m.r}" height="${Y(50)-Y(100)}" fill="${css("--green")}" opacity=".05"/>`;
+  g += `<line x1="${m.l}" x2="${w-m.r}" y1="${Y(50)}" y2="${Y(50)}" stroke="${css("--red")}" stroke-opacity=".6" stroke-dasharray="5 5"/>`;
+  g += `<text x="${w-m.r-4}" y="${Y(50)-6}" text-anchor="end" font-size="11" fill="${css("--red")}">stability line</text>`;
+  const line = pts.map((p,i) => `${i?"L":"M"}${X(i).toFixed(1)} ${Y(p.p).toFixed(1)}`).join(" ");
+  if (pts.length > 1) g += `<path d="${line} L${X(pts.length-1)} ${Y(0)} L${X(0)} ${Y(0)} Z" fill="url(#tg)"/><path d="${line}" fill="none" stroke="${C}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  pts.forEach((p,i) => {
+    g += `<circle cx="${X(i)}" cy="${Y(p.p)}" r="5.5" fill="${RISK_C[p.risk]}" stroke="${css("--panel-solid")}" stroke-width="2"><title>#${p.id} ${esc(p.site)}: ${p.p}% (${p.risk}) · ${p.t}</title></circle>`;
+    if (pts.length <= 12 || i % Math.ceil(pts.length/10) === 0) g += `<text class="axt" x="${X(i)}" y="${H-m.b+18}" text-anchor="middle">#${p.id}</text>`;
+  });
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${H}" width="${w}" height="${H}">${g}</svg>`;
+}
+
+function drawSpark(){
+  const el = document.getElementById("kpiSpark"); if (!el || D.trend.length < 2) return;
+  const w = 120, h = 26, pts = D.trend.map(p => p.p);
+  const d = pts.map((v,i) => `${i?"L":"M"}${(i*(w-4)/(pts.length-1)+2).toFixed(1)} ${(h-3-v/100*(h-6)).toFixed(1)}`).join(" ");
+  el.innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><path d="${d}" fill="none" stroke="${css("--amber")}" stroke-width="2"/></svg>`;
+}
+
+function drawDonut(){
+  const el = document.getElementById("donut"); if (!el) return;
+  const R = 70, r = 48, cx = 90, cy = 90, tot = D.total;
+  let a0 = -Math.PI/2, g = "";
+  ORDER.map(k => [k, D.risk[k] || 0]).forEach(([k,v]) => {
+    if (!v) return;
+    const a1 = a0 + v/tot * Math.PI*2, large = (a1-a0) > Math.PI ? 1 : 0;
+    if (v === tot){ g += `<circle cx="${cx}" cy="${cy}" r="${(R+r)/2}" fill="none" stroke="${RISK_C[k]}" stroke-width="${R-r}"/>`; }
+    else {
+      const p = (a, rr) => `${cx + rr*Math.cos(a)} ${cy + rr*Math.sin(a)}`;
+      g += `<path d="M${p(a0,R)} A${R} ${R} 0 ${large} 1 ${p(a1,R)} L${p(a1,r)} A${r} ${r} 0 ${large} 0 ${p(a0,r)} Z" fill="${RISK_C[k]}"><title>${k}: ${v}</title></path>`;
+    }
+    a0 = a1;
+  });
+  g += `<text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="26" font-weight="700" fill="${css("--text")}" font-family="JetBrains Mono,monospace">${tot}</text>
+        <text x="${cx}" y="${cy+18}" text-anchor="middle" font-size="11" fill="${css("--muted")}">checks</text>`;
+  el.innerHTML = `<svg viewBox="0 0 180 180" width="180" height="180">${g}</svg>`;
+  donutLegend.innerHTML = ORDER.map(k => [k, D.risk[k] || 0]).map(([k,v]) =>
+    `<div><i style="background:${RISK_C[k]}"></i>${k}<b class="mono">${v}</b><span class="muted">${tot ? Math.round(v/tot*100) : 0}%</span></div>`).join("");
+}
+
+function drawDrivers(){
+  const imp = D.importance;
+  drawHBars(document.getElementById("drivers"), imp.map(d => shortParam(d.feature)), imp.map(d => d.importance),
+    imp.map(d => kindOf(d.feature) === "tau" ? css("--blue") : kindOf(d.feature) === "g" ? css("--violet") : css("--amber")));
+}
+
+function drawAll(){ drawTrend(); drawSpark(); drawDonut(); drawDrivers(); }
+drawAll();
+let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawAll, 200); });
+window.addEventListener("themechange", drawAll);
+</script>
+{% endblock %}

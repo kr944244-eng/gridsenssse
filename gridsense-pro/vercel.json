@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{train.py,Dockerfile,render.yaml,Procfile,README.md,.dockerignore,smart_grid_stability_augmented.csv}"
+    }
+  }
+}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+{% include "_head.html" %}
+<title>{% block title %}{{ P.app_name }}{% endblock %} · {{ P.app_name }}</title>
+</head>
+<body class="has-app">
+<div class="app">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <a class="logo" href="{{ url_for('dashboard') }}"><div class="bolt">⚡</div><span>Grid<b>Sense</b></span></a>
+    <div class="side-label">Main</div>
+    <nav class="side-nav">
+      <a href="{{ url_for('dashboard') }}" class="{{ 'on' if active=='dashboard' }}"><span class="ni">📊</span>Dashboard</a>
+      <a href="{{ url_for('predict_page') }}" class="{{ 'on' if active=='predict' }}"><span class="ni">⚡</span>Stability Check</a>
+      <a href="{{ url_for('batch_page') }}" class="{{ 'on' if active=='batch' }}"><span class="ni">📂</span>Batch Upload</a>
+      <a href="{{ url_for('history_page') }}" class="{{ 'on' if active=='history' }}"><span class="ni">🕘</span>History</a>
+    </nav>
+    <div class="side-label">Analytics</div>
+    <nav class="side-nav">
+      <a href="{{ url_for('insights_page') }}" class="{{ 'on' if active=='insights' }}"><span class="ni">🧠</span>Model Insights</a>
+      <a href="#" onclick="openChat();return false;"><span class="ni">💬</span>Assistant</a>
+    </nav>
+    <div class="side-foot">
+      <div class="side-college">{% include "_emblem.html" %}<div><b>{{ P.college.split(',')[0] }}</b><span>{{ P.department }}</span></div></div>
+      <div class="side-user">
+        <div class="avatar">{{ (user_name or 'U')[0] | upper }}</div>
+        <div class="who"><b>{{ user_name }}</b><span>@{{ username }}</span></div>
+        <a class="iconbtn sm" href="{{ url_for('logout') }}" title="Log out">⏻</a>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" onclick="toggleSidebar(false)"></div>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="topbar">
+      <button class="iconbtn burger" onclick="toggleSidebar(true)" title="Menu">☰</button>
+      <div class="crumbs"><span class="muted">{{ P.app_name }}</span> <span class="muted">/</span> <b>{% block crumb %}{{ self.title() }}{% endblock %}</b></div>
+      <div class="topright">
+        <span class="status-pill"><i></i>Model online</span>
+        <button class="iconbtn" onclick="openChat()" title="Ask the assistant">💬</button>
+        <button class="iconbtn" id="themeBtn" onclick="toggleTheme()" title="Switch light / dark mode">🌙</button>
+      </div>
+    </header>
+    <div class="content">
+      {% include "_flash.html" %}
+      {% block content %}{% endblock %}
+    </div>
+    <footer>{{ P.app_name }} · {{ P.title }} · {{ P.college }} · {{ P.team | join(", ") }}</footer>
+  </div>
+</div>
+
+<!-- ============ CHAT WIDGET ============ -->
+<button class="chat-fab" id="chatFab" onclick="openChat()" title="Ask GridSense Assistant"><span>💬</span><b>Ask GridSense</b></button>
+<section class="chat" id="chat" aria-label="GridSense Assistant">
+  <header class="chat-head">
+    <div class="chat-av">⚡</div>
+    <div><b>GridSense Assistant</b><span><i></i>Online · knows your results</span></div>
+    <button class="iconbtn sm" onclick="closeChat()" title="Close">✕</button>
+  </header>
+  <div class="chat-body" id="chatBody"></div>
+  <div class="chat-chips" id="chatChips"></div>
+  <form class="chat-input" onsubmit="sendChat(event)">
+    <input id="chatText" type="text" placeholder="Ask about your results, the model, or 'what if tau3 = 2'…" autocomplete="off" maxlength="500">
+    <button class="btn primary sm" type="submit">Send</button>
+  </form>
+</section>
+
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
